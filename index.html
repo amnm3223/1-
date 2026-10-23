@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>1ぷんかん さんすう チャレンジ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=MURECHO:wght@500;700;800&display=swap');
+    
+    body {
+      font-family: 'MURECHO', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    /* ズームアップカウントダウン */
+    @keyframes zoom-in-out {
+      0% {
+        transform: scale(0.2);
+        opacity: 0;
+      }
+      50% {
+        transform: scale(1.3);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .animate-countdown {
+      animation: zoom-in-out 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    /* ブロックベーススタイル */
+    .block-dot {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      box-shadow: inset -2px -2px 4px rgba(0,0,0,0.15), 2px 2px 4px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+    }
+
+    /* たしざんブロック */
+    .block-add-left {
+      background-color: #f97316; /* オレンジ */
+      border: 2px solid #ea580c;
+    }
+    .block-add-right {
+      background-color: #eab308; /* きいろ */
+      border: 2px solid #ca8a04;
+    }
+
+    /* たしざん合体アニメーション */
+    .add-right-group-animate {
+      animation: join-left 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    @keyframes join-left {
+      0% {
+        transform: translateX(24px);
+      }
+      100% {
+        transform: translateX(0);
+      }
+    }
+
+    /* ひきざんブロック */
+    .block-sub-base {
+      background-color: #3b82f6; /* あお */
+      border: 2px solid #2563eb;
+    }
+    .block-sub-leave-dot {
+      background-color: #f97316 !important; /* ひく数はオレンジ */
+      border-color: #ea580c !important;
+    }
+
+    /* ひきざん移動＆透過アニメーション (1秒間かけて移動しながら透明に) */
+    .block-sub-leave-group-animate {
+      display: inline-flex;
+      gap: 8px;
+      padding: 6px 10px;
+      background-color: #ffedd5;
+      border: 2px solid #fb923c;
+      border-radius: 12px;
+      animation: leave-right-fade 1s ease-out forwards;
+    }
+
+    @keyframes leave-right-fade {
+      0% {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      30% {
+        opacity: 0.9;
+      }
+      100% {
+        transform: translateX(36px);
+        opacity: 0.08;
+      }
+    }
+
+    /* ボタンの立体感効果 */
+    .btn-3d {
+      transition: all 0.1s ease;
+      box-shadow: 0 6px 0 rgba(0,0,0,0.15);
+    }
+    .btn-3d:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 rgba(0,0,0,0.15);
+    }
+  </style>
+</head>
+<body class="bg-orange-50 min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 text-slate-800 transition-colors duration-500" id="app-body">
+
+  <!-- ヘッダー -->
+  <header class="w-full max-w-md bg-white rounded-2xl shadow-md p-3 flex justify-between items-center border-b-4 border-orange-300 transition-colors duration-500" id="app-header">
+    <div class="flex items-center gap-2">
+      <div id="header-icon-bg" class="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-bold text-xl shadow-sm">
+        <i id="header-icon" class="fas fa-plus"></i>
+      </div>
+      <div>
+        <h1 class="font-extrabold text-lg leading-tight" id="header-title">たしざんチャレンジ</h1>
+        <p class="text-xs text-slate-500 font-bold">1ぷんかんで なんもんできるかな？</p>
+      </div>
+    </div>
+    <button onclick="showMenu()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1">
+      <i class="fas fa-home"></i> メニュー
+    </button>
+  </header>
+
+  <!-- メインコンテンツエリア -->
+  <main class="w-full max-w-md flex-1 flex flex-col items-center justify-center my-2 relative">
+
+    <!-- 1. モード選択画面 (トップ) -->
+    <div id="screen-menu" class="w-full bg-white rounded-3xl p-6 shadow-xl border-4 border-orange-200 text-center flex flex-col items-center gap-5 my-auto">
+      <div class="inline-block bg-amber-100 text-amber-800 font-extrabold px-4 py-1.5 rounded-full text-sm">
+        がくしゅうモードを えらんでね
+      </div>
+      <h2 class="text-2xl font-black text-slate-700">1ぷんかん<br>さんすう チャレンジ</h2>
+      
+      <div class="w-full flex flex-col gap-4 mt-2">
+        <!-- たしざんボタン -->
+        <button onclick="selectMode('add')" class="btn-3d w-full bg-gradient-to-r from-orange-400 to-amber-500 hover:from-orange-500 hover:to-amber-600 text-white rounded-2xl p-4 flex items-center justify-between border-b-4 border-orange-600">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl font-black">➕</div>
+            <div class="text-left">
+              <div class="text-xl font-black">たしざん</div>
+              <div class="text-xs text-orange-100 font-bold">あわせて いくつかな？</div>
+            </div>
+          </div>
+          <i class="fas fa-chevron-right text-xl text-white/80"></i>
+        </button>
+
+        <!-- ひきざんボタン -->
+        <button onclick="selectMode('sub')" class="btn-3d w-full bg-gradient-to-r from-sky-400 to-blue-500 hover:from-sky-500 hover:to-blue-600 text-white rounded-2xl p-4 flex items-center justify-between border-b-4 border-blue-700">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl font-black">➖</div>
+            <div class="text-left">
+              <div class="text-xl font-black">ひきざん</div>
+              <div class="text-xs text-sky-100 font-bold">のうこりは いくつかな？</div>
+            </div>
+          </div>
+          <i class="fas fa-chevron-right text-xl text-white/80"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. ブロック選択画面 -->
+    <div id="screen-config" class="hidden w-full bg-white rounded-3xl p-6 shadow-xl border-4 border-orange-200 text-center flex flex-col items-center gap-5 my-auto">
+      <div class="text-sm font-bold text-slate-500">ステップ 2 / 2</div>
+      <h2 class="text-xl font-black text-slate-800">ヒントの ブロックを つかう？</h2>
+
+      <div class="grid grid-cols-2 gap-4 w-full my-2">
+        <!-- ブロックあり -->
+        <button onclick="setBlockSetting(true)" id="btn-block-on" class="btn-3d bg-amber-50 hover:bg-amber-100 border-4 border-amber-400 rounded-2xl p-4 flex flex-col items-center gap-2">
+          <div class="flex gap-1 py-2">
+            <span class="w-6 h-6 rounded-full bg-orange-500 inline-block shadow"></span>
+            <span class="w-6 h-6 rounded-full bg-orange-500 inline-block shadow"></span>
+            <span class="w-6 h-6 rounded-full bg-amber-400 inline-block shadow"></span>
+          </div>
+          <span class="font-black text-amber-900 text-base">ブロック あり</span>
+          <span class="text-xs text-amber-700 font-bold">えを みながら かぞえられるよ</span>
+        </button>
+
+        <!-- ブロックなし -->
+        <button onclick="setBlockSetting(false)" id="btn-block-off" class="btn-3d bg-slate-50 hover:bg-slate-100 border-4 border-slate-300 rounded-2xl p-4 flex flex-col items-center gap-2">
+          <div class="py-2 text-2xl font-black text-slate-400">1 2 3</div>
+          <span class="font-black text-slate-700 text-base">ブロック なし</span>
+          <span class="text-xs text-slate-500 font-bold">すうじ だけで こたえるよ</span>
+        </button>
+      </div>
+
+      <button onclick="startCountdown()" class="btn-3d w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xl py-4 rounded-2xl border-b-4 border-emerald-700 mt-2">
+        スタート！ <i class="fas fa-play ml-1"></i>
+      </button>
+    </div>
+
+    <!-- 3. カウントダウン画面 -->
+    <div id="screen-countdown" class="hidden w-full h-64 flex flex-col items-center justify-center my-auto">
+      <div id="countdown-number" class="text-8xl font-black text-orange-500 drop-shadow-lg">3</div>
+    </div>
+
+    <!-- 4. ゲームプレイ画面 -->
+    <div id="screen-game" class="hidden w-full flex flex-col items-center gap-3">
+      
+      <!-- スコア＆タイマーバー -->
+      <div class="w-full bg-white rounded-2xl p-3 shadow-md flex justify-between items-center px-6">
+        <div class="flex items-center gap-2">
+          <i class="fas fa-clock text-orange-500 text-lg" id="timer-icon"></i>
+          <span class="text-xs font-bold text-slate-400">のこり</span>
+          <span id="timer-text" class="text-2xl font-black text-slate-800 w-12">60</span><span class="text-xs font-bold text-slate-500">びょう</span>
+        </div>
+        <div class="h-6 w-0.5 bg-slate-200"></div>
+        <div class="flex items-center gap-2">
+          <i class="fas fa-star text-amber-400 text-lg"></i>
+          <span class="text-xs font-bold text-slate-400">せいかい</span>
+          <span id="score-text" class="text-2xl font-black text-orange-600">0</span><span class="text-xs font-bold text-slate-500">もん</span>
+        </div>
+      </div>
+
+      <!-- 式と問題領域 -->
+      <div class="w-full bg-white rounded-3xl p-4 shadow-lg border-2 border-slate-100 flex flex-col items-center gap-3 relative min-h-[190px] justify-center">
+        
+        <!-- 式表示 -->
+        <div class="flex items-center justify-center gap-3 text-4xl sm:text-5xl font-black text-slate-800 py-1">
+          <span id="num1">5</span>
+          <span id="operator-symbol" class="text-orange-500">＋</span>
+          <span id="num2">3</span>
+          <span class="text-slate-400">＝</span>
+          <span id="answer-box" class="w-16 h-14 bg-slate-100 border-2 border-dashed border-slate-300 rounded-2xl flex items-center justify-center text-orange-600 font-black text-4xl">?</span>
+        </div>
+
+        <!-- ブロック表示エリア -->
+        <div id="block-container" class="w-full min-h-[56px] flex items-center justify-center pt-1 border-t border-slate-100">
+          <!-- JSで動的にブロックが追加されます -->
+        </div>
+
+      </div>
+
+      <!-- テンキーパッド (0~10) -->
+      <div class="w-full bg-white rounded-3xl p-3 shadow-lg border-2 border-slate-100 flex flex-col gap-2">
+        <div class="grid grid-cols-6 gap-2">
+          <button onclick="submitAnswer(0)" class="btn-3d bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-2xl h-14 rounded-xl border-b-4 border-slate-300">0</button>
+          <button onclick="submitAnswer(1)" class="btn-3d bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-2xl h-14 rounded-xl border-b-4 border-slate-300">1</button>
+          <button onclick="submitAnswer(2)" class="btn-3d bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-2xl h-14 rounded-xl border-b-4 border-slate-300">2</button>
+          <button onclick="submitAnswer(3)" class="btn-3d bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-2xl h-14 rounded-xl border-b-4 border-slate-300">3</button>
+          <button onclick="submitAnswer(4)" class="btn-3d bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-2xl h-14 rounded-xl border-b-4 border-slate-300">4</button>
+          <button onclick="submitAnswer(5)" class="btn-3d bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-2xl h-14 rounded-xl border-b-4 border-slate-300">5</button>
+        </div>
+        <div class="grid grid-cols-5 gap-2">
+          <button onclick="submitAnswer(6)" class="btn-3d bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-2xl h-14 rounded-xl border-b-4 border-slate-300">6</button>
+          <button onclick="submitAnswer(7)" class="btn-3d bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-2xl h-14 rounded-xl border-b-4 border-slate-300">7</button>
+          <button onclick="submitAnswer(8)" class="btn-3d bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-2xl h-14 rounded-xl border-b-4 border-slate-300">8</button>
+          <button onclick="submitAnswer(9)" class="btn-3d bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-2xl h-14 rounded-xl border-b-4 border-slate-300">9</button>
+          <button onclick="submitAnswer(10)" class="btn-3d bg-orange-500 hover:bg-orange-600 text-white font-black text-2xl h-14 rounded-xl border-b-4 border-orange-700 col-span-1" id="btn-key-10">10</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 5. 結果発表画面 -->
+    <div id="screen-result" class="hidden w-full bg-white rounded-3xl p-6 shadow-xl border-4 border-orange-200 text-center flex flex-col items-center gap-4 my-auto">
+      <div class="text-4xl">🎉</div>
+      <h2 class="text-2xl font-black text-slate-800">しゅうりょう！</h2>
+      
+      <div class="w-full bg-amber-50 rounded-2xl p-4 border-2 border-amber-200 my-1">
+        <div class="text-xs font-bold text-amber-700">1ぷんかんで せいかい した かず</div>
+        <div class="text-5xl font-black text-orange-600 my-1"><span id="result-score">0</span> <span class="text-lg">もん</span></div>
+        <div id="result-comment" class="text-sm font-bold text-slate-600 mt-2">すごいぞ！よく がんばったね！</div>
+      </div>
+
+      <div class="w-full flex flex-col gap-3 mt-2">
+        <button onclick="startCountdown()" class="btn-3d w-full bg-orange-500 hover:bg-orange-600 text-white font-black text-lg py-3 rounded-xl border-b-4 border-orange-700" id="btn-restart">
+          もういちど チャレンジ！ <i class="fas fa-redo ml-1"></i>
+        </button>
+        <button onclick="showMenu()" class="btn-3d w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-md py-3 rounded-xl border-b-4 border-slate-300">
+          メニューに もどる
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- フッター -->
+  <footer class="text-center text-xs font-bold text-slate-400 py-1">
+    しょうがっこう1ねんせい さんすうチャレンジ
+  </footer>
+
+  <script>
+    // ゲーム状態
+    let currentMode = 'add'; // 'add' or 'sub'
+    let useBlocks = true;
+    let score = 0;
+    let timeLeft = 60;
+    let gameTimer = null;
+    let currentNum1 = 0;
+    let currentNum2 = 0;
+    let currentCorrectAnswer = 0;
+    let blockAnimationTimeout = null;
+
+    // 音声効果 (Web Audio API)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playSound(type) {
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      if (type === 'correct') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+        osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
+        osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2); // G5
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
+      } else if (type === 'countdown') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.2);
+      } else if (type === 'start') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.5);
+      }
+    }
+
+    // 画面切り替え
+    function hideAllScreens() {
+      document.getElementById('screen-menu').classList.add('hidden');
+      document.getElementById('screen-config').classList.add('hidden');
+      document.getElementById('screen-countdown').classList.add('hidden');
+      document.getElementById('screen-game').classList.add('hidden');
+      document.getElementById('screen-result').classList.add('hidden');
+    }
+
+    function showMenu() {
+      if (gameTimer) clearInterval(gameTimer);
+      if (blockAnimationTimeout) clearTimeout(blockAnimationTimeout);
+      hideAllScreens();
+      document.getElementById('screen-menu').classList.remove('hidden');
+    }
+
+    // モード選択（暖色・寒色 テーマ切り替え）
+    function selectMode(mode) {
+      currentMode = mode;
+      const body = document.getElementById('app-body');
+      const header = document.getElementById('app-header');
+      const headerIcon = document.getElementById('header-icon');
+      const headerIconBg = document.getElementById('header-icon-bg');
+      const headerTitle = document.getElementById('header-title');
+      const operatorSymbol = document.getElementById('operator-symbol');
+      const key10 = document.getElementById('btn-key-10');
+      const btnRestart = document.getElementById('btn-restart');
+
+      if (mode === 'add') {
+        // 暖色テーマ (オレンジ・イエロー)
+        body.className = 'bg-orange-50 min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 text-slate-800 transition-colors duration-500';
+        header.className = 'w-full max-w-md bg-white rounded-2xl shadow-md p-3 flex justify-between items-center border-b-4 border-orange-300 transition-colors duration-500';
+        headerIconBg.className = 'w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-bold text-xl shadow-sm';
+        headerIcon.className = 'fas fa-plus';
+        headerTitle.textContent = 'たしざんチャレンジ';
+        operatorSymbol.textContent = '＋';
+        operatorSymbol.className = 'text-orange-500';
+        key10.className = 'btn-3d bg-orange-500 hover:bg-orange-600 text-white font-black text-2xl h-14 rounded-xl border-b-4 border-orange-700 col-span-1';
+        btnRestart.className = 'btn-3d w-full bg-orange-500 hover:bg-orange-600 text-white font-black text-lg py-3 rounded-xl border-b-4 border-orange-700';
+      } else {
+        // 寒色テーマ (スカイブルー・ブルー)
+        body.className = 'bg-sky-50 min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 text-slate-800 transition-colors duration-500';
+        header.className = 'w-full max-w-md bg-white rounded-2xl shadow-md p-3 flex justify-between items-center border-b-4 border-sky-300 transition-colors duration-500';
+        headerIconBg.className = 'w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center font-bold text-xl shadow-sm';
+        headerIcon.className = 'fas fa-minus';
+        headerTitle.textContent = 'ひきざんチャレンジ';
+        operatorSymbol.textContent = '－';
+        operatorSymbol.className = 'text-sky-500';
+        key10.className = 'btn-3d bg-sky-500 hover:bg-sky-600 text-white font-black text-2xl h-14 rounded-xl border-b-4 border-sky-700 col-span-1';
+        btnRestart.className = 'btn-3d w-full bg-sky-500 hover:bg-sky-600 text-white font-black text-lg py-3 rounded-xl border-b-4 border-sky-700';
+      }
+
+      hideAllScreens();
+      document.getElementById('screen-config').classList.remove('hidden');
+    }
+
+    function setBlockSetting(enabled) {
+      useBlocks = enabled;
+      const btnOn = document.getElementById('btn-block-on');
+      const btnOff = document.getElementById('btn-block-off');
+
+      if (enabled) {
+        btnOn.classList.add('ring-4', 'ring-amber-400');
+        btnOff.classList.remove('ring-4', 'ring-sky-400', 'ring-amber-400');
+      } else {
+        btnOff.classList.add('ring-4', currentMode === 'add' ? 'ring-amber-400' : 'ring-sky-400');
+        btnOn.classList.remove('ring-4', 'ring-amber-400');
+      }
+    }
+
+    // カウントダウン開始 (3, 2, 1 ズームアップ)
+    function startCountdown() {
+      hideAllScreens();
+      document.getElementById('screen-countdown').classList.remove('hidden');
+      
+      const countEl = document.getElementById('countdown-number');
+      let count = 3;
+
+      countEl.textContent = count;
+      countEl.className = 'text-8xl font-black ' + (currentMode === 'add' ? 'text-orange-500' : 'text-sky-500') + ' animate-countdown';
+      playSound('countdown');
+
+      const interval = setInterval(() => {
+        count--;
+        if (count > 0) {
+          countEl.textContent = count;
+          // アニメーションを再実行するためにクラスをつけ直し
+          countEl.classList.remove('animate-countdown');
+          void countEl.offsetWidth; // Reflow
+          countEl.classList.add('animate-countdown');
+          playSound('countdown');
+        } else if (count === 0) {
+          countEl.textContent = 'スタート！';
+          countEl.classList.remove('animate-countdown');
+          void countEl.offsetWidth;
+          countEl.classList.add('animate-countdown');
+          playSound('start');
+        } else {
+          clearInterval(interval);
+          startGame();
+        }
+      }, 800);
+    }
+
+    // ゲーム開始
+    function startGame() {
+      hideAllScreens();
+      document.getElementById('screen-game').classList.remove('hidden');
+
+      score = 0;
+      timeLeft = 60;
+      document.getElementById('score-text').textContent = score;
+      document.getElementById('timer-text').textContent = timeLeft;
+
+      nextQuestion();
+
+      // カウントダウンタイマー
+      if (gameTimer) clearInterval(gameTimer);
+      gameTimer = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timer-text').textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(gameTimer);
+          endGame();
+        }
+      }, 1000);
+    }
+
+    // 問題生成
+    function nextQuestion() {
+      if (currentMode === 'add') {
+        // たしざん: 合計が10以下
+        currentNum1 = Math.floor(Math.random() * 10); // 0〜9
+        const maxNum2 = 10 - currentNum1;
+        currentNum2 = Math.floor(Math.random() * (maxNum2 + 1)); // 0〜maxNum2
+        currentCorrectAnswer = currentNum1 + currentNum2;
+      } else {
+        // ひきざん: 引かれる数が0〜10、引く数はそれ以下
+        currentNum1 = Math.floor(Math.random() * 11); // 0〜10
+        currentNum2 = Math.floor(Math.random() * (currentNum1 + 1)); // 0〜currentNum1
+        currentCorrectAnswer = currentNum1 - currentNum2;
+      }
+
+      document.getElementById('num1').textContent = currentNum1;
+      document.getElementById('num2').textContent = currentNum2;
+      document.getElementById('answer-box').textContent = '?';
+
+      renderBlocks();
+    }
+
+    // ブロック描画演出
+    function renderBlocks() {
+      const container = document.getElementById('block-container');
+      container.innerHTML = '';
+      if (blockAnimationTimeout) clearTimeout(blockAnimationTimeout);
+
+      if (!useBlocks) {
+        container.style.display = 'none';
+        return;
+      }
+      container.style.display = 'flex';
+
+      if (currentMode === 'add') {
+        // たしざん演出: 左(オレンジ)と右(黄色)が0.3秒後に近づいて合体
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex items-center gap-4 bg-orange-50/80 px-4 py-2 rounded-2xl border border-orange-200';
+
+        // 左グループ
+        const leftGroup = document.createElement('div');
+        leftGroup.className = 'flex gap-1.5';
+        for (let i = 0; i < currentNum1; i++) {
+          const dot = document.createElement('div');
+          dot.className = 'block-dot block-add-left';
+          leftGroup.appendChild(dot);
+        }
+
+        // 右グループ
+        const rightGroup = document.createElement('div');
+        rightGroup.className = 'flex gap-1.5 transition-all';
+        for (let i = 0; i < currentNum2; i++) {
+          const dot = document.createElement('div');
+          dot.className = 'block-dot block-add-right';
+          rightGroup.appendChild(dot);
+        }
+
+        wrapper.appendChild(leftGroup);
+        if (currentNum2 > 0) {
+          wrapper.appendChild(rightGroup);
+          // 0.3秒後に右側グループが左に寄って一列化
+          blockAnimationTimeout = setTimeout(() => {
+            rightGroup.className = 'flex gap-1.5 add-right-group-animate';
+            wrapper.className = 'flex items-center gap-1.5 bg-amber-100/80 px-4 py-2 rounded-2xl border border-amber-300 transition-all duration-300';
+          }, 300);
+        }
+
+        container.appendChild(wrapper);
+
+      } else {
+        // ひきざん演出:
+        // 1. 最初は全体(currentNum1)の青いブロックが表示される
+        // 2. 1.0秒間キープ
+        // 3. 引く数(currentNum2)の色が変わって1.0秒間かけて右に移動しながらスーッと透過して消滅
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex items-center gap-2 bg-sky-50/80 px-4 py-2 rounded-2xl border border-sky-200';
+
+        // 残るブロックグループ (青)
+        const remainCount = currentNum1 - currentNum2;
+        const mainGroup = document.createElement('div');
+        mainGroup.className = 'flex gap-2';
+
+        for (let i = 0; i < remainCount; i++) {
+          const dot = document.createElement('div');
+          dot.className = 'block-dot block-sub-base';
+          mainGroup.appendChild(dot);
+        }
+
+        // 引く数ブロックグループ (最初は青、後で移動＋透過)
+        let leaveGroup = null;
+        if (currentNum2 > 0) {
+          leaveGroup = document.createElement('div');
+          leaveGroup.className = 'flex gap-2 p-1 border border-transparent';
+          for (let i = 0; i < currentNum2; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'block-dot block-sub-base';
+            leaveGroup.appendChild(dot);
+          }
+        }
+
+        wrapper.appendChild(mainGroup);
+        if (leaveGroup) wrapper.appendChild(leaveGroup);
+        container.appendChild(wrapper);
+
+        // 1.0秒待ってから、引く数の色を変えて右に移動＆1.0秒かけてスーッと透過
+        if (currentNum2 > 0 && leaveGroup) {
+          blockAnimationTimeout = setTimeout(() => {
+            const dots = leaveGroup.querySelectorAll('.block-dot');
+            dots.forEach(dot => dot.className = 'block-dot block-sub-leave-dot');
+            leaveGroup.className = 'block-sub-leave-group-animate';
+          }, 1000);
+        }
+      }
+    }
+
+    // 回答選択
+    function submitAnswer(num) {
+      document.getElementById('answer-box').textContent = num;
+
+      if (num === currentCorrectAnswer) {
+        playSound('correct');
+        score++;
+        document.getElementById('score-text').textContent = score;
+        
+        // 正解の簡単なフィードバック
+        const answerBox = document.getElementById('answer-box');
+        answerBox.className = 'w-16 h-14 bg-emerald-100 border-2 border-emerald-400 rounded-2xl flex items-center justify-center text-emerald-600 font-black text-4xl scale-110 transition-transform';
+        
+        setTimeout(() => {
+          answerBox.className = 'w-16 h-14 bg-slate-100 border-2 border-dashed border-slate-300 rounded-2xl flex items-center justify-center text-orange-600 font-black text-4xl';
+          nextQuestion();
+        }, 250);
+      } else {
+        // 不正解時は少し揺らす演出のみ（テンポ重視）
+        const answerBox = document.getElementById('answer-box');
+        answerBox.className = 'w-16 h-14 bg-rose-100 border-2 border-rose-400 rounded-2xl flex items-center justify-center text-rose-600 font-black text-4xl';
+        setTimeout(() => {
+          answerBox.className = 'w-16 h-14 bg-slate-100 border-2 border-dashed border-slate-300 rounded-2xl flex items-center justify-center text-orange-600 font-black text-4xl';
+        }, 300);
+      }
+    }
+
+    // 終了処理
+    function endGame() {
+      hideAllScreens();
+      document.getElementById('screen-result').classList.remove('hidden');
+      document.getElementById('result-score').textContent = score;
+
+      const commentEl = document.getElementById('result-comment');
+      if (score >= 25) {
+        commentEl.textContent = '🏅 すごすぎる！ さんすう マスターだね！';
+      } else if (score >= 15) {
+        commentEl.textContent = '🌟 すごい！ とても はやくて せいかく！';
+      } else if (score >= 8) {
+        commentEl.textContent = '👍 よく がんばったね！ つぎは もっと できるよ！';
+      } else {
+        commentEl.textContent = '😊 なんかいも れんしゅうして つよくなろう！';
+      }
+    }
+
+    // 初期起動
+    showMenu();
+  </script>
+</body>
+</html>
