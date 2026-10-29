@@ -78,7 +78,7 @@
       border-color: #ea580c !important;
     }
 
-    /* ひきざん移動＆透過アニメーション (1秒間かけて移動しながら透明に) */
+    /* ひきざん移動＆透過アニメーション */
     .block-sub-leave-group-animate {
       display: inline-flex;
       gap: 8px;
@@ -136,13 +136,30 @@
   <main class="w-full max-w-md flex-1 flex flex-col items-center justify-center my-2 relative">
 
     <!-- 1. モード選択画面 (トップ) -->
-    <div id="screen-menu" class="w-full bg-white rounded-3xl p-6 shadow-xl border-4 border-orange-200 text-center flex flex-col items-center gap-5 my-auto">
+    <div id="screen-menu" class="w-full bg-white rounded-3xl p-6 shadow-xl border-4 border-orange-200 text-center flex flex-col items-center gap-4 my-auto">
       <div class="inline-block bg-amber-100 text-amber-800 font-extrabold px-4 py-1.5 rounded-full text-sm">
         がくしゅうモードを えらんでね
       </div>
       <h2 class="text-2xl font-black text-slate-700">1ぷんかん<br>さんすう チャレンジ</h2>
+
+      <!-- さいこうきろく表示エリア -->
+      <div class="w-full bg-amber-50 rounded-2xl p-3 border-2 border-amber-200 flex flex-col gap-2 shadow-inner">
+        <div class="text-xs font-black text-amber-800 flex items-center justify-center gap-1">
+          <i class="fas fa-trophy text-amber-500 text-sm"></i> きみの さいこうきろく
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-xs font-bold">
+          <div class="bg-white rounded-xl p-2 border border-amber-200 flex flex-col items-center">
+            <span class="text-orange-500 font-black">➕ たしざん</span>
+            <span id="high-score-add-display" class="text-base font-black text-slate-800 mt-0.5">まだだよ</span>
+          </div>
+          <div class="bg-white rounded-xl p-2 border border-amber-200 flex flex-col items-center">
+            <span class="text-sky-500 font-black">➖ ひきざん</span>
+            <span id="high-score-sub-display" class="text-base font-black text-slate-800 mt-0.5">まだだよ</span>
+          </div>
+        </div>
+      </div>
       
-      <div class="w-full flex flex-col gap-4 mt-2">
+      <div class="w-full flex flex-col gap-3 mt-1">
         <!-- たしざんボタン -->
         <button onclick="selectMode('add')" class="btn-3d w-full bg-gradient-to-r from-orange-400 to-amber-500 hover:from-orange-500 hover:to-amber-600 text-white rounded-2xl p-4 flex items-center justify-between border-b-4 border-orange-600">
           <div class="flex items-center gap-3">
@@ -263,7 +280,10 @@
     </div>
 
     <!-- 5. 結果発表画面 -->
-    <div id="screen-result" class="hidden w-full bg-white rounded-3xl p-6 shadow-xl border-4 border-orange-200 text-center flex flex-col items-center gap-4 my-auto">
+    <div id="screen-result" class="hidden w-full bg-white rounded-3xl p-6 shadow-xl border-4 border-orange-200 text-center flex flex-col items-center gap-3 my-auto">
+      <div id="new-record-badge" class="hidden bg-amber-400 text-amber-950 font-black text-sm px-4 py-1.5 rounded-full animate-bounce shadow-md">
+        🎉 さいこうきろく こうしん！ 🎉
+      </div>
       <div class="text-4xl">🎉</div>
       <h2 class="text-2xl font-black text-slate-800">しゅうりょう！</h2>
       
@@ -302,6 +322,28 @@
     let currentCorrectAnswer = 0;
     let blockAnimationTimeout = null;
 
+    // ハイスコア読み込み＆更新関数
+    function getHighScore(mode) {
+      const key = mode === 'add' ? 'sansu_highscore_add' : 'sansu_highscore_sub';
+      return parseInt(localStorage.getItem(key) || '0', 10);
+    }
+
+    function setHighScore(mode, val) {
+      const key = mode === 'add' ? 'sansu_highscore_add' : 'sansu_highscore_sub';
+      localStorage.setItem(key, val);
+    }
+
+    function updateMenuHighScores() {
+      const addScore = getHighScore('add');
+      const subScore = getHighScore('sub');
+
+      const addEl = document.getElementById('high-score-add-display');
+      const subEl = document.getElementById('high-score-sub-display');
+
+      if (addEl) addEl.textContent = addScore > 0 ? `${addScore} もん` : 'まだだよ';
+      if (subEl) subEl.textContent = subScore > 0 ? `${subScore} もん` : 'まだだよ';
+    }
+
     // 音声効果 (Web Audio API)
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
@@ -309,12 +351,12 @@
       if (audioCtx.state === 'suspended') {
         audioCtx.resume();
       }
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
 
       if (type === 'correct') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
         osc.type = 'sine';
         osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
         osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
@@ -324,6 +366,10 @@
         osc.start();
         osc.stop(audioCtx.currentTime + 0.4);
       } else if (type === 'countdown') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
         gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
@@ -331,12 +377,32 @@
         osc.start();
         osc.stop(audioCtx.currentTime + 0.2);
       } else if (type === 'start') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
         osc.type = 'sine';
         osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
         gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
         osc.start();
         osc.stop(audioCtx.currentTime + 0.5);
+      } else if (type === 'fanfare') {
+        // 新記録用ファンファーレ音
+        const now = audioCtx.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, idx) => {
+          const noteOsc = audioCtx.createOscillator();
+          const noteGain = audioCtx.createGain();
+          noteOsc.connect(noteGain);
+          noteGain.connect(audioCtx.destination);
+          noteOsc.type = 'sine';
+          noteOsc.frequency.setValueAtTime(freq, now + idx * 0.12);
+          noteGain.gain.setValueAtTime(0.25, now + idx * 0.12);
+          noteGain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.12 + 0.35);
+          noteOsc.start(now + idx * 0.12);
+          noteOsc.stop(now + idx * 0.12 + 0.35);
+        });
       }
     }
 
@@ -353,6 +419,7 @@
       if (gameTimer) clearInterval(gameTimer);
       if (blockAnimationTimeout) clearTimeout(blockAnimationTimeout);
       hideAllScreens();
+      updateMenuHighScores();
       document.getElementById('screen-menu').classList.remove('hidden');
     }
 
@@ -369,7 +436,7 @@
       const btnRestart = document.getElementById('btn-restart');
 
       if (mode === 'add') {
-        // 暖色テーマ (オレンジ・イエロー)
+        // 暖色テーマ
         body.className = 'bg-orange-50 min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 text-slate-800 transition-colors duration-500';
         header.className = 'w-full max-w-md bg-white rounded-2xl shadow-md p-3 flex justify-between items-center border-b-4 border-orange-300 transition-colors duration-500';
         headerIconBg.className = 'w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center font-bold text-xl shadow-sm';
@@ -380,7 +447,7 @@
         key10.className = 'btn-3d bg-orange-500 hover:bg-orange-600 text-white font-black text-2xl h-14 rounded-xl border-b-4 border-orange-700 col-span-1';
         btnRestart.className = 'btn-3d w-full bg-orange-500 hover:bg-orange-600 text-white font-black text-lg py-3 rounded-xl border-b-4 border-orange-700';
       } else {
-        // 寒色テーマ (スカイブルー・ブルー)
+        // 寒色テーマ
         body.className = 'bg-sky-50 min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 text-slate-800 transition-colors duration-500';
         header.className = 'w-full max-w-md bg-white rounded-2xl shadow-md p-3 flex justify-between items-center border-b-4 border-sky-300 transition-colors duration-500';
         headerIconBg.className = 'w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center font-bold text-xl shadow-sm';
@@ -410,7 +477,7 @@
       }
     }
 
-    // カウントダウン開始 (3, 2, 1 ズームアップ)
+    // カウントダウン開始
     function startCountdown() {
       hideAllScreens();
       document.getElementById('screen-countdown').classList.remove('hidden');
@@ -426,9 +493,8 @@
         count--;
         if (count > 0) {
           countEl.textContent = count;
-          // アニメーションを再実行するためにクラスをつけ直し
           countEl.classList.remove('animate-countdown');
-          void countEl.offsetWidth; // Reflow
+          void countEl.offsetWidth;
           countEl.classList.add('animate-countdown');
           playSound('countdown');
         } else if (count === 0) {
@@ -456,7 +522,6 @@
 
       nextQuestion();
 
-      // カウントダウンタイマー
       if (gameTimer) clearInterval(gameTimer);
       gameTimer = setInterval(() => {
         timeLeft--;
@@ -471,15 +536,13 @@
     // 問題生成
     function nextQuestion() {
       if (currentMode === 'add') {
-        // たしざん: 合計が10以下
-        currentNum1 = Math.floor(Math.random() * 10); // 0〜9
+        currentNum1 = Math.floor(Math.random() * 10);
         const maxNum2 = 10 - currentNum1;
-        currentNum2 = Math.floor(Math.random() * (maxNum2 + 1)); // 0〜maxNum2
+        currentNum2 = Math.floor(Math.random() * (maxNum2 + 1));
         currentCorrectAnswer = currentNum1 + currentNum2;
       } else {
-        // ひきざん: 引かれる数が0〜10、引く数はそれ以下
-        currentNum1 = Math.floor(Math.random() * 11); // 0〜10
-        currentNum2 = Math.floor(Math.random() * (currentNum1 + 1)); // 0〜currentNum1
+        currentNum1 = Math.floor(Math.random() * 11);
+        currentNum2 = Math.floor(Math.random() * (currentNum1 + 1));
         currentCorrectAnswer = currentNum1 - currentNum2;
       }
 
@@ -503,11 +566,9 @@
       container.style.display = 'flex';
 
       if (currentMode === 'add') {
-        // たしざん演出: 左(オレンジ)と右(黄色)が0.3秒後に近づいて合体
         const wrapper = document.createElement('div');
         wrapper.className = 'flex items-center gap-4 bg-orange-50/80 px-4 py-2 rounded-2xl border border-orange-200';
 
-        // 左グループ
         const leftGroup = document.createElement('div');
         leftGroup.className = 'flex gap-1.5';
         for (let i = 0; i < currentNum1; i++) {
@@ -516,7 +577,6 @@
           leftGroup.appendChild(dot);
         }
 
-        // 右グループ
         const rightGroup = document.createElement('div');
         rightGroup.className = 'flex gap-1.5 transition-all';
         for (let i = 0; i < currentNum2; i++) {
@@ -528,7 +588,6 @@
         wrapper.appendChild(leftGroup);
         if (currentNum2 > 0) {
           wrapper.appendChild(rightGroup);
-          // 0.3秒後に右側グループが左に寄って一列化
           blockAnimationTimeout = setTimeout(() => {
             rightGroup.className = 'flex gap-1.5 add-right-group-animate';
             wrapper.className = 'flex items-center gap-1.5 bg-amber-100/80 px-4 py-2 rounded-2xl border border-amber-300 transition-all duration-300';
@@ -538,14 +597,9 @@
         container.appendChild(wrapper);
 
       } else {
-        // ひきざん演出:
-        // 1. 最初は全体(currentNum1)の青いブロックが表示される
-        // 2. 1.0秒間キープ
-        // 3. 引く数(currentNum2)の色が変わって1.0秒間かけて右に移動しながらスーッと透過して消滅
         const wrapper = document.createElement('div');
         wrapper.className = 'flex items-center gap-2 bg-sky-50/80 px-4 py-2 rounded-2xl border border-sky-200';
 
-        // 残るブロックグループ (青)
         const remainCount = currentNum1 - currentNum2;
         const mainGroup = document.createElement('div');
         mainGroup.className = 'flex gap-2';
@@ -556,7 +610,6 @@
           mainGroup.appendChild(dot);
         }
 
-        // 引く数ブロックグループ (最初は青、後で移動＋透過)
         let leaveGroup = null;
         if (currentNum2 > 0) {
           leaveGroup = document.createElement('div');
@@ -572,7 +625,6 @@
         if (leaveGroup) wrapper.appendChild(leaveGroup);
         container.appendChild(wrapper);
 
-        // 1.0秒待ってから、引く数の色を変えて右に移動＆1.0秒かけてスーッと透過
         if (currentNum2 > 0 && leaveGroup) {
           blockAnimationTimeout = setTimeout(() => {
             const dots = leaveGroup.querySelectorAll('.block-dot');
@@ -592,7 +644,6 @@
         score++;
         document.getElementById('score-text').textContent = score;
         
-        // 正解の簡単なフィードバック
         const answerBox = document.getElementById('answer-box');
         answerBox.className = 'w-16 h-14 bg-emerald-100 border-2 border-emerald-400 rounded-2xl flex items-center justify-center text-emerald-600 font-black text-4xl scale-110 transition-transform';
         
@@ -601,7 +652,6 @@
           nextQuestion();
         }, 250);
       } else {
-        // 不正解時は少し揺らす演出のみ（テンポ重視）
         const answerBox = document.getElementById('answer-box');
         answerBox.className = 'w-16 h-14 bg-rose-100 border-2 border-rose-400 rounded-2xl flex items-center justify-center text-rose-600 font-black text-4xl';
         setTimeout(() => {
@@ -610,14 +660,28 @@
       }
     }
 
-    // 終了処理
+    // 終了処理 (ハイスコア判定と更新)
     function endGame() {
       hideAllScreens();
       document.getElementById('screen-result').classList.remove('hidden');
       document.getElementById('result-score').textContent = score;
 
+      const previousHighScore = getHighScore(currentMode);
+      const isNewRecord = score > previousHighScore;
+      const badge = document.getElementById('new-record-badge');
+
+      if (isNewRecord) {
+        setHighScore(currentMode, score);
+        if (badge) badge.classList.remove('hidden');
+        playSound('fanfare');
+      } else {
+        if (badge) badge.classList.add('hidden');
+      }
+
       const commentEl = document.getElementById('result-comment');
-      if (score >= 25) {
+      if (isNewRecord) {
+        commentEl.textContent = '👑 しんきろく たっせい！ すごすぎるよ！';
+      } else if (score >= 25) {
         commentEl.textContent = '🏅 すごすぎる！ さんすう マスターだね！';
       } else if (score >= 15) {
         commentEl.textContent = '🌟 すごい！ とても はやくて せいかく！';
